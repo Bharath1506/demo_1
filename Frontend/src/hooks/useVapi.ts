@@ -177,11 +177,21 @@ export const useVapi = () => {
                     content: message
                 }
             });
+
+            // Add to local messages immediately
+            const newMessage: VapiMessage = {
+                role: 'user',
+                content: message,
+                timestamp: new Date(),
+                speaker: currentSpeaker
+            };
+
+            setMessages(prev => [...prev, newMessage]);
         } catch (err: any) {
             console.error('Failed to send message:', err);
             setError(err.message || 'Failed to send message');
         }
-    }, [vapi]);
+    }, [vapi, currentSpeaker]);
 
     const setSpeaker = useCallback((speakerName: string) => {
         setCurrentSpeaker(speakerName);

@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Phone, PhoneOff, Download, Send, Bot, Sparkles, Loader2, Target, CheckCircle2 } from 'lucide-react';
+import { Phone, PhoneOff, Download, Send, Bot, Sparkles, Loader2, Target, CheckCircle2, Paperclip, Link as LinkIcon, X, Heart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useVapi } from '@/hooks/useVapi';
 import logoImage from '@/assets/talentspotify-logo.png';
@@ -22,6 +22,10 @@ export const VapiVoiceInterface = () => {
     const { toast } = useToast();
     const [isConnecting, setIsConnecting] = useState(false);
     const [hasStartedCall, setHasStartedCall] = useState(false);
+    const [attachmentLink, setAttachmentLink] = useState('');
+    const [showLinkInput, setShowLinkInput] = useState(false);
+    const [tempLink, setTempLink] = useState('');
+    const [showThankYou, setShowThankYou] = useState(false);
 
     // Consent dialog state
     const [showConsentDialog, setShowConsentDialog] = useState(false);
@@ -70,12 +74,30 @@ export const VapiVoiceInterface = () => {
         }
     };
 
+    const handleStopCall = async () => {
+        await stopCall();
+        setShowThankYou(true);
+    };
+
     useEffect(() => {
         if (isCallActive) {
             setIsConnecting(false);
             setHasStartedCall(true);
         }
     }, [isCallActive]);
+
+    // Handle redirect after showing thank you
+    useEffect(() => {
+        if (showThankYou) {
+            const timer = setTimeout(() => {
+                setShowThankYou(false);
+                setHasStartedCall(false);
+                setManagerConsent(false);
+                setEmployeeConsent(false);
+            }, 3000); // Show for 3 seconds
+            return () => clearTimeout(timer);
+        }
+    }, [showThankYou]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -97,10 +119,24 @@ export const VapiVoiceInterface = () => {
 
     const handleTextSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!textInput.trim() || !isCallActive) return;
+        if ((!textInput.trim() && !attachmentLink) || !isCallActive) return;
 
-        sendMessage(textInput.trim());
+        let messageContent = textInput.trim();
+        if (attachmentLink) {
+            messageContent += `\nAttached Document: ${attachmentLink}`;
+        }
+
+        sendMessage(messageContent);
         setTextInput('');
+        setAttachmentLink('');
+    };
+
+    const handleLinkSubmit = () => {
+        if (tempLink) {
+            setAttachmentLink(tempLink);
+            setShowLinkInput(false);
+            setTempLink('');
+        }
     };
 
     const downloadReport = () => {
@@ -134,6 +170,63 @@ ${'='.repeat(60)}
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-background to-assistant-bg p-4">
+            {/* Link Input Dialog */}
+            <Dialog open={showLinkInput} onOpenChange={setShowLinkInput}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Attach Document Link</DialogTitle>
+                        <DialogDescription>
+                            Paste a URL to a document you want to share in the conversation.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <Input
+                            id="link"
+                            placeholder="https://..."
+                            value={tempLink}
+                            onChange={(e) => setTempLink(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleLinkSubmit();
+                                }
+                            }}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowLinkInput(false)}>Cancel</Button>
+                        <Button onClick={handleLinkSubmit} disabled={!tempLink.trim()}>Attach</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Thank You Card */}
+            {showThankYou && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-300">
+                    <Card className="w-full max-w-md bg-white shadow-2xl rounded-3xl p-12 flex flex-col items-center space-y-6 border-none animate-in zoom-in duration-500">
+                        {/* Heart Icon with Animation */}
+                        <div className="relative">
+                            <div className="absolute inset-0 rounded-full bg-[#8da356]/20 animate-ping" style={{ animationDuration: '1.5s' }}></div>
+                            <div className="bg-[#8da356]/10 h-24 w-24 flex items-center justify-center rounded-full relative z-10">
+                                <Heart className="h-12 w-12 text-[#8da356] fill-[#8da356] animate-pulse" />
+                            </div>
+                        </div>
+
+                        {/* Thank You Message */}
+                        <div className="text-center space-y-3">
+                            <h2 className="text-3xl font-bold text-[#333]">Thank You!</h2>
+                            <p className="text-base text-[#666]">Your performance review session has been completed successfully.</p>
+                        </div>
+
+                        {/* Redirect Message */}
+                        <div className="flex items-center gap-2 text-sm text-[#888]">
+                            <div className="h-2 w-2 rounded-full bg-[#8da356] animate-pulse"></div>
+                            <span>Redirecting to home...</span>
+                        </div>
+                    </Card>
+                </div>
+            )}
+
             {/* Consent Dialog */}
             <Dialog open={showConsentDialog} onOpenChange={setShowConsentDialog}>
                 <DialogContent className="sm:max-w-[600px]">
@@ -446,7 +539,7 @@ ${'='.repeat(60)}
 
                                     <Button
                                         size="lg"
-                                        onClick={stopCall}
+                                        onClick={handleStopCall}
                                         className={`h-20 w-20 rounded-full transition-all relative z-10 bg-destructive hover:bg-destructive/90 animate-pulse shadow-lg shadow-destructive/50`}
                                     >
                                         <PhoneOff className="h-8 w-8" />
@@ -458,7 +551,31 @@ ${'='.repeat(60)}
 
                             {/* Bottom: Input Area */}
                             <div className="w-full pt-4 border-t border-border/50 space-y-3">
+                                {attachmentLink && (
+                                    <div className="flex items-center gap-2 text-xs bg-accent/10 p-2 rounded text-accent-foreground animate-in fade-in slide-in-from-bottom-1">
+                                        <LinkIcon className="h-3 w-3" />
+                                        <span className="truncate max-w-[200px] font-medium">{attachmentLink}</span>
+                                        <button
+                                            onClick={() => setAttachmentLink('')}
+                                            className="ml-auto hover:text-destructive transition-colors"
+                                            type="button"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </div>
+                                )}
                                 <form onSubmit={handleTextSubmit} className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={() => setShowLinkInput(true)}
+                                        className="shrink-0 h-10 w-10"
+                                        disabled={!isCallActive}
+                                        title="Attach Document Link"
+                                    >
+                                        <Paperclip className="h-4 w-4" />
+                                    </Button>
                                     <Input
                                         type="text"
                                         value={textInput}
@@ -470,15 +587,12 @@ ${'='.repeat(60)}
                                     <Button
                                         type="submit"
                                         size="default"
-                                        disabled={!textInput.trim() || !isCallActive}
+                                        disabled={(!textInput.trim() && !attachmentLink) || !isCallActive}
                                         className="h-10 px-4"
                                     >
                                         <Send className="h-4 w-4" />
                                     </Button>
                                 </form>
-                                <p className="text-xs text-muted-foreground text-center">
-                                    Select your role, then speak naturally.
-                                </p>
                             </div>
                         </Card>
                     </div>
