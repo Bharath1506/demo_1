@@ -1,7 +1,7 @@
-import { VoiceInterface } from '@/components/VoiceInterface';
+import { VapiVoiceInterface } from '@/components/VapiVoiceInterface';
 
 const Index = () => {
-  return <VoiceInterface />;
+  return <VapiVoiceInterface />;
 };
 
 export default Index;
